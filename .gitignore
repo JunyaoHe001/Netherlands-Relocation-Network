@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+env/
+.conda/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Temporary and cache files
+*.tmp
+*.temp
+*.log
+*.duckdb
+*.duckdb.wal
+.cache/
+cache/
+tmp/
+
+# Local build products
+build/
+dist/
+site-preview/
+
+# Compressed local exports; publish deliberate release archives separately
+*.zip
+*.7z
+*.rar
+
+# Local path-specific outputs from the reconstruction pipeline
+10_intermediate/
+20_analysis/
+30_results/
+40_public/
