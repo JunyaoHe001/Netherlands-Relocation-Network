@@ -4,11 +4,15 @@ This repository contains the public data, code, computational notebooks, documen
 
 ## Interactive atlas
 
-The public atlas is designed to be available at:
+The public atlas is available at:
 
 **https://junyaohe001.github.io/Netherlands-Relocation-Network/atlas/**
 
 It supports interactive filtering by year range and demographic stratum. Municipality colours represent net relocation balance, while directed curves represent the strongest origin–destination flows under the current selection.
+
+The project landing page is available at:
+
+**https://junyaohe001.github.io/Netherlands-Relocation-Network/**
 
 ## Dataset scope
 
@@ -28,13 +32,14 @@ The four dimensions are parallel marginal reconstructions. They should not be in
 ├── data/                 Public release files, metadata, and data documentation
 ├── docs/                 Methodological and project documentation
 ├── notebooks/            Versioned computational notebooks
-├── outputs/              Reproducible figures and tables
-├── scripts/              Reusable build and publication utilities
+├── outputs/              Reproducible figures, tables, and validation summaries
+├── scripts/              Build, validation, and release utilities
 ├── src/                  Reusable analysis code
-├── website/              Static project website deployed with GitHub Pages
-│   └── atlas/            Generated interactive relocation atlas
-└── .github/workflows/    Automated validation and website deployment
+├── website/              Maintained project-page source and publication notes
+└── gh-pages branch       Generated project website and interactive atlas
 ```
+
+The `main` branch is reserved for research materials and maintained source files. Generated website assets are isolated on the `gh-pages` branch and served through GitHub Pages.
 
 Large source or intermediate files should not be committed without a deliberate release strategy. Public, citable releases should be placed under `data/releases/` or attached to a versioned GitHub release, with checksums and metadata recorded in the repository.
 
