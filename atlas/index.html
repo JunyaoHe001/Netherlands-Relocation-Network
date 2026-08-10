@@ -558,12 +558,42 @@
       setLoading(false);
     }
 
-    async function fetchJSON(url) {
-      const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error(`Could not load ${url}: HTTP ${response.status}`);
+    function wait(milliseconds) {
+      return new Promise((resolve) => setTimeout(resolve, milliseconds));
+    }
+
+    async function fetchJSON(url, options = {}) {
+      const attempts = Number(options.attempts ?? 3);
+      const timeoutMs = Number(options.timeoutMs ?? 15000);
+      let lastError = null;
+
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const response = await fetch(url, {
+            cache: attempt === 0 ? "default" : "reload",
+            signal: controller.signal,
+          });
+          if (!response.ok) {
+            throw new Error(`Could not load ${url}: HTTP ${response.status}`);
+          }
+          return await response.json();
+        } catch (error) {
+          lastError = error;
+          if (attempt + 1 < attempts) {
+            setLoading(true, `Connection interrupted. Retrying ${url.split("/").pop()}…`);
+            await wait(450 * (attempt + 1));
+          }
+        } finally {
+          window.clearTimeout(timeout);
+        }
       }
-      return response.json();
+
+      const reason = lastError?.name === "AbortError"
+        ? `Timed out while loading ${url}`
+        : (lastError?.message || String(lastError));
+      throw new Error(reason);
     }
 
     function getDimensionMeta(dimensionId) {
@@ -1149,20 +1179,55 @@
       downloadTextFile(`visible_edges_${state.startYear}_${state.endYear}_${currentDimension}.csv`, csv);
     }
 
+    const INITIAL_RETRY_KEY = "atlas-initialisation-retry-v2";
+
     async function initialise() {
       if (typeof L === "undefined" || typeof noUiSlider === "undefined") {
-        throw new Error("The atlas interface libraries did not load correctly. Please retry once or report the issue.");
+        throw new Error("The atlas interface libraries did not load correctly.");
       }
-      [meta, municipalityGeoJSON] = await Promise.all([
-        fetchJSON(META_URL),
+
+      setLoading(true, "Loading atlas metadata…");
+      meta = await fetchJSON(META_URL);
+      const defaultDimension = getDimensionMeta(meta.defaultDimension);
+      if (!defaultDimension) {
+        throw new Error(`Unknown default dimension: ${meta.defaultDimension}`);
+      }
+
+      setLoading(true, `Loading map and ${defaultDimension.label} layer…`);
+      const [geojson, nodes, edges] = await Promise.all([
         fetchJSON("./data/municipalities.geojson"),
+        fetchJSON(`./${defaultDimension.nodeFile}`),
+        fetchJSON(`./${defaultDimension.edgeFile}`),
       ]);
+
+      municipalityGeoJSON = geojson;
+      dataCache.set(meta.defaultDimension, { nodes, edges });
       buildMap();
       buildStaticControls();
       await loadDimension(meta.defaultDimension);
+      sessionStorage.removeItem(INITIAL_RETRY_KEY);
     }
 
-    initialise().catch(showError);
+    async function startAtlas() {
+      try {
+        await initialise();
+      } catch (error) {
+        const alreadyRetried = sessionStorage.getItem(INITIAL_RETRY_KEY) === "1";
+        if (!alreadyRetried) {
+          sessionStorage.setItem(INITIAL_RETRY_KEY, "1");
+          setLoading(true, "Initial connection was interrupted. Retrying automatically…");
+          await wait(650);
+          const retryUrl = new URL(window.location.href);
+          retryUrl.searchParams.set("atlas_retry", Date.now().toString());
+          window.location.replace(retryUrl.toString());
+          return;
+        }
+        sessionStorage.removeItem(INITIAL_RETRY_KEY);
+        showError(error);
+      }
+    }
+
+    startAtlas();
   </script>
 </body>
 </html>
