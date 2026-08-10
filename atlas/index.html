@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Explore reconstructed inter-municipal relocation flows across the Netherlands. Municipality colours show net migration, while directed curves show the strongest origin–destination flows for the selected years and population groups." />
+  <title>Dutch Population Relocation Networks</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css" />
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --ink: #17212b;
+      --muted: #667085;
+      --line: #d9e0e7;
+      --accent: #1f5f8b;
+      --accent-soft: #e9f1f7;
+      --negative: #2166ac;
+      --zero: #f7f7f7;
+      --positive: #b2182b;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.10);
+      --sidebar-width: 380px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #sidebar {
+      position: relative;
+      z-index: 1000;
+      height: 100%;
+      overflow-y: auto;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      box-shadow: 4px 0 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .sidebar-inner { padding: 22px 22px 28px; }
+    .brand { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.42rem;
+      line-height: 1.22;
+      letter-spacing: -0.02em;
+    }
+    .brand .subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.91rem;
+      line-height: 1.45;
+    }
+    .brand .description {
+      margin: 12px 0 0;
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .control-section {
+      padding: 18px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .control-section:last-of-type { border-bottom: 0; }
+    .section-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .section-title h2 {
+      margin: 0;
+      font-size: 0.83rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #344054;
+    }
+    .section-title .value {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.87rem;
+    }
+
+    label {
+      display: block;
+      margin: 0 0 7px;
+      font-size: 0.82rem;
+      font-weight: 650;
+      color: #344054;
+    }
+    select, input[type="text"], input[type="search"] {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #cdd5df;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    select:focus, input:focus {
+      border-color: #7aa7c7;
+      box-shadow: 0 0 0 3px rgba(31, 95, 139, 0.12);
+    }
+
+    #year-slider { margin: 24px 10px 10px; }
+    .noUi-target {
+      border: 0;
+      box-shadow: none;
+      background: #d7e0e8;
+      height: 6px;
+    }
+    .noUi-connect { background: var(--accent); }
+    .noUi-horizontal .noUi-handle {
+      width: 20px;
+      height: 20px;
+      right: -10px;
+      top: -7px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      background: var(--accent);
+      box-shadow: 0 1px 5px rgba(15, 23, 42, 0.28);
+      cursor: grab;
+    }
+    .noUi-handle::before, .noUi-handle::after { display: none; }
+
+    .range-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .group-actions {
+      display: flex;
+      gap: 8px;
+      margin: 10px 0;
+    }
+    button {
+      border: 1px solid #cdd5df;
+      border-radius: 8px;
+      background: #fff;
+      color: #344054;
+      padding: 7px 10px;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button:hover { background: #f8fafc; border-color: #98a2b3; }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button.primary:hover { background: #194e72; }
+
+    #group-checkboxes {
+      max-height: 210px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .check-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 6px 0;
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+    .check-row input { margin-top: 2px; accent-color: var(--accent); }
+    .check-row label { margin: 0; font-weight: 500; cursor: pointer; }
+
+    .inline-check {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 12px;
+      font-size: 0.84rem;
+    }
+    .inline-check input { accent-color: var(--accent); }
+
+    .range-control input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+    .stat-card {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fbfcfd;
+    }
+    .stat-card .label {
+      color: var(--muted);
+      font-size: 0.70rem;
+      line-height: 1.25;
+      text-transform: uppercase;
+      letter-spacing: 0.045em;
+    }
+    .stat-card .number {
+      margin-top: 5px;
+      font-size: 1rem;
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .legend-block { margin-top: 14px; }
+    .legend-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 7px;
+      font-size: 0.77rem;
+      font-weight: 650;
+    }
+    .legend-bar {
+      height: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--negative), var(--zero), var(--positive));
+    }
+    .legend-labels {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .legend-labels span:nth-child(2) { text-align: center; }
+    .legend-labels span:nth-child(3) { text-align: right; }
+
+    .note {
+      padding: 11px 12px;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: #284b63;
+      font-size: 0.76rem;
+      line-height: 1.5;
+    }
+    .coverage {
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1.45;
+    }
+
+    .download-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .footer {
+      padding-top: 18px;
+      color: var(--muted);
+      font-size: 0.73rem;
+      line-height: 1.55;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .footer .links { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; }
+
+    #map-wrap { position: relative; min-width: 0; height: 100%; }
+    #map { width: 100%; height: 100%; background: #e9eef2; }
+
+    #map-summary {
+      position: absolute;
+      z-index: 650;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: min(680px, calc(100% - 120px));
+      padding: 9px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      color: #344054;
+      font-size: 0.80rem;
+      font-weight: 650;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    #loading {
+      position: absolute;
+      inset: 0;
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(245, 247, 250, 0.88);
+      backdrop-filter: blur(3px);
+    }
+    #loading.hidden { display: none; }
+    .loading-card {
+      min-width: 250px;
+      padding: 20px 24px;
+      border-radius: 11px;
+      background: #fff;
+      box-shadow: var(--shadow);
+      text-align: center;
+      font-size: 0.87rem;
+    }
+    .spinner {
+      width: 30px;
+      height: 30px;
+      margin: 0 auto 12px;
+      border: 3px solid #d9e2ea;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #error-box {
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid #f0b8b5;
+      border-radius: 8px;
+      background: #fff1f0;
+      color: #8a1c17;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .leaflet-tooltip.flow-tooltip,
+    .leaflet-tooltip.node-tooltip {
+      border: 0;
+      border-radius: 8px;
+      box-shadow: 0 5px 18px rgba(15, 23, 42, 0.2);
+      padding: 9px 11px;
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+    .tooltip-title { font-weight: 750; margin-bottom: 4px; }
+    .tooltip-grid {
+      display: grid;
+      grid-template-columns: auto auto;
+      column-gap: 13px;
+      row-gap: 2px;
+    }
+    .tooltip-grid span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+
+    #mobile-toggle {
+      display: none;
+      position: absolute;
+      z-index: 1300;
+      top: 12px;
+      left: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    @media (max-width: 850px) {
+      #app { display: block; }
+      #sidebar {
+        position: absolute;
+        width: min(var(--sidebar-width), calc(100% - 34px));
+        transform: translateX(-105%);
+        transition: transform 0.22s ease;
+      }
+      #sidebar.open { transform: translateX(0); }
+      #map-wrap { width: 100%; height: 100%; }
+      #mobile-toggle { display: inline-flex; }
+      #map-summary { top: 62px; max-width: calc(100% - 30px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="sidebar-inner">
+        <header class="brand">
+          <h1 id="site-title">Dutch Population Relocation Networks</h1>
+          <p class="subtitle" id="site-subtitle"></p>
+          <p class="description" id="site-description"></p>
+          <div id="error-box"></div>
+        </header>
+
+        <section class="control-section">
+          <div class="section-title">
+            <h2>Period</h2>
+            <span class="value" id="year-selection"></span>
+          </div>
+          <div id="year-slider"></div>
+          <div class="range-row"><span id="year-min"></span><span id="year-max"></span></div>
+          <div style="margin-top: 15px;">
+            <label for="aggregation-select">Period aggregation</label>
+            <select id="aggregation-select">
+              <option value="annual_average">Annual average</option>
+              <option value="period_total">Period total</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">
+            <h2>Population layer</h2>
+            <span class="value" id="group-selection-summary"></span>
+          </div>
+          <label for="dimension-select">Demographic dimension</label>
+          <select id="dimension-select"></select>
+          <div class="group-actions">
+            <button id="select-all-groups" type="button">Select all</button>
+            <button id="clear-groups" type="button">Clear</button>
+          </div>
+          <div id="group-checkboxes"></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">
+            <h2>Network display</h2>
+            <span class="value" id="edge-limit-label"></span>
+          </div>
+          <div class="range-control">
+            <label for="edge-limit">Maximum visible directed edges</label>
+            <input id="edge-limit" type="range" />
+          </div>
+          <div class="inline-check">
+            <input id="show-edges" type="checkbox" checked />
+            <label for="show-edges" style="margin:0;">Show OD curves</label>
+          </div>
+          <div style="margin-top: 14px;">
+            <label for="municipality-search">Find a municipality</label>
+            <input id="municipality-search" type="search" list="municipality-options" placeholder="Name or GM code" />
+            <datalist id="municipality-options"></datalist>
+          </div>
+          <div class="group-actions" style="margin-top: 12px;">
+            <button id="reset-view" type="button">Reset filters</button>
+            <button id="fit-map" type="button">Fit Netherlands</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title"><h2>Current selection</h2></div>
+          <div class="stats-grid">
+            <div class="stat-card"><div class="label">Exact non-self flow</div><div class="number" id="stat-flow">—</div></div>
+            <div class="stat-card"><div class="label">Visible edges</div><div class="number" id="stat-edges">—</div></div>
+            <div class="stat-card"><div class="label">Net-in municipalities</div><div class="number" id="stat-positive">—</div></div>
+            <div class="stat-card"><div class="label">Net-out municipalities</div><div class="number" id="stat-negative">—</div></div>
+          </div>
+
+          <div class="legend-block">
+            <div class="legend-title"><span>Municipal net flow</span><span id="legend-unit"></span></div>
+            <div class="legend-bar"></div>
+            <div class="legend-labels"><span id="legend-min">—</span><span>0</span><span id="legend-max">—</span></div>
+          </div>
+
+          <div class="coverage" id="coverage-text"></div>
+          <div class="download-row">
+            <button id="download-nodes" type="button">Download nodes</button>
+            <button id="download-edges" type="button">Download visible edges</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="note" id="method-note"></div>
+        </section>
+
+        <footer class="footer">
+          <div id="citation-text"></div>
+          <div id="licence-text"></div>
+          <div id="contact-text"></div>
+          <div class="links" id="public-links"></div>
+        </footer>
+      </div>
+    </aside>
+
+    <main id="map-wrap">
+      <button id="mobile-toggle" class="primary" type="button">Filters</button>
+      <div id="map"></div>
+      <div id="map-summary">Loading data…</div>
+      <div id="loading">
+        <div class="loading-card"><div class="spinner"></div><div id="loading-text">Loading atlas data…</div></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.js"></script>
+  <script>
+    "use strict";
+
+    const META_URL = "./data/meta.json";
+    const integerFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+    const decimalFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+
+    let meta;
+    let municipalityGeoJSON;
+    let map;
+    let municipalityLayer;
+    let flowLayer;
+    let flowRenderer;
+    let municipalityLayers = new Map();
+    let fullMapBounds;
+    let dataCache = new Map();
+    let currentData = null;
+    let currentDimension = null;
+    let currentAggregate = null;
+    let updateFrame = null;
+
+    const state = {
+      startYear: null,
+      endYear: null,
+      aggregation: "annual_average",
+      selectedGroups: new Set(),
+      edgeLimit: 300,
+      showEdges: true,
+    };
+
+    function byId(id) { return document.getElementById(id); }
+
+    function escapeHTML(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function setLoading(isLoading, text = "Loading atlas data…") {
+      byId("loading-text").textContent = text;
+      byId("loading").classList.toggle("hidden", !isLoading);
+    }
+
+    function showError(error) {
+      console.error(error);
+      const box = byId("error-box");
+      box.style.display = "block";
+      const localHint = window.location.protocol === "file:"
+        ? "\n\nThis site uses separate JSON assets. Open it through a local web server, for example: python -m http.server 8000"
+        : "";
+      box.textContent = `${error?.message || error}${localHint}`;
+      setLoading(false);
+    }
+
+    async function fetchJSON(url) {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`Could not load ${url}: HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
+    function getDimensionMeta(dimensionId) {
+      return meta.dimensions.find((item) => item.id === dimensionId);
+    }
+
+    function formatFlow(value) {
+      if (!Number.isFinite(value)) return "—";
+      return Math.abs(value) >= 100 ? integerFormat.format(value) : decimalFormat.format(value);
+    }
+
+    function formatPercent(value) {
+      return Number.isFinite(value) ? `${(100 * value).toFixed(1)}%` : "—";
+    }
+
+    function hexToRgb(hex) {
+      const clean = hex.replace("#", "");
+      return [
+        parseInt(clean.slice(0, 2), 16),
+        parseInt(clean.slice(2, 4), 16),
+        parseInt(clean.slice(4, 6), 16),
+      ];
+    }
+
+    function rgbToHex(rgb) {
+      return "#" + rgb.map((value) => Math.round(value).toString(16).padStart(2, "0")).join("");
+    }
+
+    function blendColors(fromHex, toHex, t) {
+      const from = hexToRgb(fromHex);
+      const to = hexToRgb(toHex);
+      const clamped = Math.max(0, Math.min(1, t));
+      return rgbToHex(from.map((value, index) => value + (to[index] - value) * clamped));
+    }
+
+    function quantile(sortedValues, q) {
+      if (!sortedValues.length) return 1;
+      const position = (sortedValues.length - 1) * q;
+      const base = Math.floor(position);
+      const remainder = position - base;
+      if (sortedValues[base + 1] !== undefined) {
+        return sortedValues[base] + remainder * (sortedValues[base + 1] - sortedValues[base]);
+      }
+      return sortedValues[base];
+    }
+
+    function netColor(value, cap) {
+      const settings = meta.settings;
+      if (!Number.isFinite(value) || cap <= 0) return settings.zeroColor;
+      if (value < 0) {
+        return blendColors(settings.zeroColor, settings.negativeColor, Math.min(1, Math.abs(value) / cap));
+      }
+      if (value > 0) {
+        return blendColors(settings.zeroColor, settings.positiveColor, Math.min(1, value / cap));
+      }
+      return settings.zeroColor;
+    }
+
+    function quadraticCurve(origin, destination, segments = 18, curvature = 0.13) {
+      const x1 = origin.lng;
+      const y1 = origin.lat;
+      const x2 = destination.lng;
+      const y2 = destination.lat;
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const cx = (x1 + x2) / 2 - dy * curvature;
+      const cy = (y1 + y2) / 2 + dx * curvature;
+      const points = [];
+      for (let step = 0; step <= segments; step += 1) {
+        const t = step / segments;
+        const mt = 1 - t;
+        const x = mt * mt * x1 + 2 * mt * t * cx + t * t * x2;
+        const y = mt * mt * y1 + 2 * mt * t * cy + t * t * y2;
+        points.push([y, x]);
+      }
+      return points;
+    }
+
+    function ensureArrowMarker() {
+      const svg = flowRenderer?._container;
+      if (!svg || svg.querySelector("#flow-arrow")) return;
+      const namespace = "http://www.w3.org/2000/svg";
+      const defs = document.createElementNS(namespace, "defs");
+      const marker = document.createElementNS(namespace, "marker");
+      marker.setAttribute("id", "flow-arrow");
+      marker.setAttribute("viewBox", "0 0 10 10");
+      marker.setAttribute("refX", "9");
+      marker.setAttribute("refY", "5");
+      marker.setAttribute("markerWidth", "7");
+      marker.setAttribute("markerHeight", "7");
+      marker.setAttribute("orient", "auto-start-reverse");
+      marker.setAttribute("markerUnits", "userSpaceOnUse");
+      const path = document.createElementNS(namespace, "path");
+      path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+      path.setAttribute("fill", "#34495e");
+      marker.appendChild(path);
+      defs.appendChild(marker);
+      svg.insertBefore(defs, svg.firstChild);
+    }
+
+    function buildMap() {
+      map = L.map("map", { zoomControl: true, preferCanvas: false, minZoom: 6 });
+      L.tileLayer(meta.map.tileUrl, {
+        attribution: meta.map.attribution,
+        maxZoom: meta.map.maxZoom,
+      }).addTo(map);
+
+      map.createPane("municipalityPane");
+      map.getPane("municipalityPane").style.zIndex = 410;
+      map.createPane("flowPane");
+      map.getPane("flowPane").style.zIndex = 460;
+      map.getPane("flowPane").style.pointerEvents = "auto";
+
+      municipalityLayer = L.geoJSON(municipalityGeoJSON, {
+        pane: "municipalityPane",
+        style: {
+          color: "#ffffff",
+          weight: 0.7,
+          fillColor: meta.settings.zeroColor,
+          fillOpacity: 0.82,
+        },
+        onEachFeature: (feature, layer) => {
+          municipalityLayers.set(Number(feature.properties.i), layer);
+          layer.bindTooltip("", { sticky: true, className: "node-tooltip" });
+          layer.on("mouseover", () => layer.setStyle({ weight: 1.8, color: "#344054" }));
+          layer.on("mouseout", () => layer.setStyle({ weight: 0.7, color: "#ffffff" }));
+        },
+      }).addTo(map);
+
+      fullMapBounds = municipalityLayer.getBounds();
+      map.fitBounds(fullMapBounds, { padding: [18, 18] });
+
+      flowRenderer = L.svg({ pane: "flowPane", padding: 0.65 }).addTo(map);
+      flowLayer = L.layerGroup().addTo(map);
+      ensureArrowMarker();
+    }
+
+    function buildStaticControls() {
+      byId("site-title").textContent = meta.title;
+      byId("site-subtitle").textContent = meta.subtitle;
+      byId("site-description").textContent = meta.description;
+      byId("method-note").textContent = meta.methodNote;
+      byId("citation-text").innerHTML = `<strong>Citation:</strong> ${escapeHTML(meta.public.citation)}`;
+      byId("licence-text").innerHTML = `<strong>Licence:</strong> ${escapeHTML(meta.public.licence)}`;
+      byId("contact-text").innerHTML = meta.public.contactEmail
+        ? `<strong>Contact:</strong> <a href="mailto:${escapeHTML(meta.public.contactEmail)}">${escapeHTML(meta.public.contactEmail)}</a>`
+        : "";
+
+      const linkSpecs = [
+        [meta.public.methodsUrl, "Methods"],
+        [meta.public.dataDownloadUrl, "Full data"],
+        [meta.public.repositoryUrl, "Repository"],
+      ].filter(([url]) => Boolean(url));
+      byId("public-links").innerHTML = linkSpecs
+        .map(([url, label]) => `<a href="${escapeHTML(url)}" target="_blank" rel="noopener">${label}</a>`)
+        .join("");
+
+      const dimensionSelect = byId("dimension-select");
+      dimensionSelect.innerHTML = meta.dimensions
+        .map((dimension) => `<option value="${escapeHTML(dimension.id)}">${escapeHTML(dimension.label)}</option>`)
+        .join("");
+      dimensionSelect.value = meta.defaultDimension;
+
+      const minYear = Math.min(...meta.years);
+      const maxYear = Math.max(...meta.years);
+      state.startYear = minYear;
+      state.endYear = maxYear;
+      state.aggregation = meta.defaultAggregation;
+      state.edgeLimit = meta.settings.defaultVisibleEdges;
+
+      byId("year-min").textContent = minYear;
+      byId("year-max").textContent = maxYear;
+      byId("aggregation-select").value = state.aggregation;
+
+      noUiSlider.create(byId("year-slider"), {
+        start: [minYear, maxYear],
+        connect: true,
+        step: 1,
+        range: { min: minYear, max: maxYear },
+        format: {
+          to: (value) => Math.round(value),
+          from: (value) => Number(value),
+        },
+      });
+      byId("year-slider").noUiSlider.on("update", (values) => {
+        byId("year-selection").textContent = `${values[0]}–${values[1]}`;
+      });
+      byId("year-slider").noUiSlider.on("change", (values) => {
+        state.startYear = Number(values[0]);
+        state.endYear = Number(values[1]);
+        scheduleUpdate();
+      });
+
+      const edgeLimit = byId("edge-limit");
+      edgeLimit.min = Math.min(meta.settings.edgeLimitStep, meta.settings.maxVisibleEdges);
+      edgeLimit.max = meta.settings.maxVisibleEdges;
+      edgeLimit.step = meta.settings.edgeLimitStep;
+      edgeLimit.value = state.edgeLimit;
+      byId("edge-limit-label").textContent = integerFormat.format(state.edgeLimit);
+      edgeLimit.addEventListener("input", () => {
+        byId("edge-limit-label").textContent = integerFormat.format(Number(edgeLimit.value));
+      });
+      edgeLimit.addEventListener("change", () => {
+        state.edgeLimit = Number(edgeLimit.value);
+        scheduleUpdate();
+      });
+
+      byId("aggregation-select").addEventListener("change", (event) => {
+        state.aggregation = event.target.value;
+        scheduleUpdate();
+      });
+      byId("dimension-select").addEventListener("change", (event) => {
+        loadDimension(event.target.value).catch(showError);
+      });
+      byId("show-edges").addEventListener("change", (event) => {
+        state.showEdges = event.target.checked;
+        scheduleUpdate();
+      });
+      byId("select-all-groups").addEventListener("click", () => {
+        const dimension = getDimensionMeta(currentDimension);
+        state.selectedGroups = new Set(dimension.groups.map((group) => Number(group.id)));
+        syncGroupCheckboxes();
+        scheduleUpdate();
+      });
+      byId("clear-groups").addEventListener("click", () => {
+        state.selectedGroups.clear();
+        syncGroupCheckboxes();
+        scheduleUpdate();
+      });
+      byId("fit-map").addEventListener("click", () => {
+        map.fitBounds(fullMapBounds, { padding: [18, 18] });
+      });
+      byId("reset-view").addEventListener("click", resetFilters);
+      byId("download-nodes").addEventListener("click", downloadCurrentNodes);
+      byId("download-edges").addEventListener("click", downloadCurrentEdges);
+
+      const options = byId("municipality-options");
+      options.innerHTML = meta.municipalities
+        .map((municipality) => `<option value="${escapeHTML(municipality.name)} — ${escapeHTML(municipality.code)}"></option>`)
+        .join("");
+      byId("municipality-search").addEventListener("change", searchMunicipality);
+
+      byId("mobile-toggle").addEventListener("click", () => {
+        byId("sidebar").classList.toggle("open");
+      });
+    }
+
+    function renderGroupCheckboxes(dimensionId) {
+      const dimension = getDimensionMeta(dimensionId);
+      state.selectedGroups = new Set(dimension.groups.map((group) => Number(group.id)));
+      const container = byId("group-checkboxes");
+      container.innerHTML = dimension.groups.map((group) => {
+        const id = `group-${dimensionId}-${group.id}`;
+        return `<div class="check-row">
+          <input id="${escapeHTML(id)}" type="checkbox" data-group-id="${group.id}" checked />
+          <label for="${escapeHTML(id)}">${escapeHTML(group.label)}</label>
+        </div>`;
+      }).join("");
+      container.querySelectorAll("input[type='checkbox']").forEach((input) => {
+        input.addEventListener("change", () => {
+          const groupId = Number(input.dataset.groupId);
+          if (input.checked) state.selectedGroups.add(groupId);
+          else state.selectedGroups.delete(groupId);
+          updateGroupSelectionSummary();
+          scheduleUpdate();
+        });
+      });
+      updateGroupSelectionSummary();
+    }
+
+    function syncGroupCheckboxes() {
+      byId("group-checkboxes").querySelectorAll("input[type='checkbox']").forEach((input) => {
+        input.checked = state.selectedGroups.has(Number(input.dataset.groupId));
+      });
+      updateGroupSelectionSummary();
+    }
+
+    function updateGroupSelectionSummary() {
+      const dimension = getDimensionMeta(currentDimension);
+      const selectedCount = state.selectedGroups.size;
+      byId("group-selection-summary").textContent = selectedCount === dimension.groups.length
+        ? `All ${selectedCount}`
+        : `${selectedCount}/${dimension.groups.length}`;
+    }
+
+    async function loadDimension(dimensionId) {
+      setLoading(true, `Loading ${getDimensionMeta(dimensionId).label} layer…`);
+      currentDimension = dimensionId;
+      byId("dimension-select").value = dimensionId;
+      renderGroupCheckboxes(dimensionId);
+
+      if (!dataCache.has(dimensionId)) {
+        const dimension = getDimensionMeta(dimensionId);
+        const [nodes, edges] = await Promise.all([
+          fetchJSON(`./${dimension.nodeFile}`),
+          fetchJSON(`./${dimension.edgeFile}`),
+        ]);
+        dataCache.set(dimensionId, { nodes, edges });
+      }
+      currentData = dataCache.get(dimensionId);
+      scheduleUpdate();
+      setLoading(false);
+    }
+
+    function scheduleUpdate() {
+      if (!currentData || !meta) return;
+      if (updateFrame !== null) cancelAnimationFrame(updateFrame);
+      updateFrame = requestAnimationFrame(() => {
+        updateFrame = null;
+        updateVisualization();
+      });
+    }
+
+    function aggregateSelection() {
+      const municipalityCount = meta.municipalities.length;
+      const inflow = new Float64Array(municipalityCount);
+      const outflow = new Float64Array(municipalityCount);
+      const selectedGroups = state.selectedGroups;
+      const startYear = state.startYear;
+      const endYear = state.endYear;
+      const yearCount = Math.max(1, endYear - startYear + 1);
+      const scale = state.aggregation === "annual_average" ? 1 / yearCount : 1;
+
+      for (const row of currentData.nodes.rows) {
+        const year = row[0];
+        const groupId = row[1];
+        if (year < startYear || year > endYear || !selectedGroups.has(groupId)) continue;
+        const municipalityId = row[2];
+        inflow[municipalityId] += row[3];
+        outflow[municipalityId] += row[4];
+      }
+
+      for (let index = 0; index < municipalityCount; index += 1) {
+        inflow[index] *= scale;
+        outflow[index] *= scale;
+      }
+
+      let fullMass = 0;
+      let candidateMass = 0;
+      let fullPositiveEdgeCount = 0;
+      let candidateEdgeCount = 0;
+      for (const row of currentData.edges.totals) {
+        const year = row[0];
+        const groupId = row[1];
+        if (year < startYear || year > endYear || !selectedGroups.has(groupId)) continue;
+        fullMass += row[2];
+        fullPositiveEdgeCount += row[3];
+        candidateMass += row[4];
+        candidateEdgeCount += row[5];
+      }
+      fullMass *= scale;
+      candidateMass *= scale;
+
+      const edgeMap = new Map();
+      if (state.showEdges && selectedGroups.size > 0) {
+        for (const row of currentData.edges.rows) {
+          const year = row[0];
+          const groupId = row[1];
+          if (year < startYear || year > endYear || !selectedGroups.has(groupId)) continue;
+          const originId = row[2];
+          const destinationId = row[3];
+          const key = originId * municipalityCount + destinationId;
+          const existing = edgeMap.get(key);
+          if (existing) existing.flow += row[4] * scale;
+          else edgeMap.set(key, { originId, destinationId, flow: row[4] * scale });
+        }
+      }
+
+      const rankedEdges = Array.from(edgeMap.values())
+        .filter((edge) => edge.flow > 0)
+        .sort((a, b) => b.flow - a.flow)
+        .slice(0, state.edgeLimit);
+      const displayedMass = rankedEdges.reduce((sum, edge) => sum + edge.flow, 0);
+
+      const net = new Float64Array(municipalityCount);
+      const absoluteNet = [];
+      let positiveCount = 0;
+      let negativeCount = 0;
+      for (let index = 0; index < municipalityCount; index += 1) {
+        net[index] = inflow[index] - outflow[index];
+        const absolute = Math.abs(net[index]);
+        if (absolute > 0) absoluteNet.push(absolute);
+        if (net[index] > 1e-9) positiveCount += 1;
+        if (net[index] < -1e-9) negativeCount += 1;
+      }
+      absoluteNet.sort((a, b) => a - b);
+      const cap = Math.max(1e-9, quantile(absoluteNet, meta.settings.colorClipQuantile));
+
+      return {
+        inflow,
+        outflow,
+        net,
+        cap,
+        rankedEdges,
+        fullMass,
+        candidateMass,
+        displayedMass,
+        fullPositiveEdgeCount,
+        candidateEdgeCount,
+        positiveCount,
+        negativeCount,
+        scale,
+      };
+    }
+
+    function nodeTooltip(municipalityId, aggregate) {
+      const municipality = meta.municipalities[municipalityId];
+      const unit = state.aggregation === "annual_average" ? "annual average" : "period total";
+      return `<div class="tooltip-title">${escapeHTML(municipality.name)} <span style="font-weight:500;color:#667085;">${escapeHTML(municipality.code)}</span></div>
+        <div class="tooltip-grid">
+          <span>Inflow</span><span>${formatFlow(aggregate.inflow[municipalityId])}</span>
+          <span>Outflow</span><span>${formatFlow(aggregate.outflow[municipalityId])}</span>
+          <span>Net flow</span><span>${formatFlow(aggregate.net[municipalityId])}</span>
+          <span>Measure</span><span>${unit}</span>
+        </div>`;
+    }
+
+    function updateMunicipalities(aggregate) {
+      municipalityLayers.forEach((layer, municipalityId) => {
+        const value = aggregate.net[municipalityId];
+        layer.setStyle({
+          fillColor: netColor(value, aggregate.cap),
+          fillOpacity: state.selectedGroups.size ? 0.84 : 0.35,
+          weight: 0.7,
+          color: "#ffffff",
+        });
+        layer.setTooltipContent(nodeTooltip(municipalityId, aggregate));
+      });
+    }
+
+    function updateFlows(aggregate) {
+      flowLayer.clearLayers();
+      if (!state.showEdges || !aggregate.rankedEdges.length) return;
+      ensureArrowMarker();
+      const maximumFlow = aggregate.rankedEdges[0].flow;
+
+      aggregate.rankedEdges.forEach((edge, index) => {
+        const origin = meta.municipalities[edge.originId];
+        const destination = meta.municipalities[edge.destinationId];
+        const strength = Math.sqrt(edge.flow / maximumFlow);
+        const baseStyle = {
+          color: "#34495e",
+          weight: 0.75 + 5.0 * strength,
+          opacity: 0.18 + 0.60 * strength,
+        };
+        const curve = quadraticCurve(origin, destination);
+        const line = L.polyline(curve, {
+          ...baseStyle,
+          pane: "flowPane",
+          renderer: flowRenderer,
+          interactive: true,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(flowLayer);
+        if (line._path) line._path.setAttribute("marker-end", "url(#flow-arrow)");
+        line.bindTooltip(
+          `<div class="tooltip-title">${escapeHTML(origin.name)} → ${escapeHTML(destination.name)}</div>
+           <div class="tooltip-grid"><span>Flow</span><span>${formatFlow(edge.flow)}</span><span>Visible rank</span><span>${index + 1}</span></div>`,
+          { sticky: true, className: "flow-tooltip" }
+        );
+        line.on("mouseover", () => line.setStyle({ color: "#111827", opacity: 0.90 }));
+        line.on("mouseout", () => line.setStyle(baseStyle));
+      });
+    }
+
+    function selectedGroupLabel() {
+      const dimension = getDimensionMeta(currentDimension);
+      const selected = dimension.groups.filter((group) => state.selectedGroups.has(Number(group.id)));
+      if (!selected.length) return "No groups selected";
+      if (selected.length === dimension.groups.length) return `all ${dimension.label.toLowerCase()} groups`;
+      if (selected.length <= 3) return selected.map((group) => group.label).join(", ");
+      return `${selected.length} selected ${dimension.label.toLowerCase()} groups`;
+    }
+
+    function updateSummary(aggregate) {
+      const measureLabel = state.aggregation === "annual_average" ? "annual average" : "period total";
+      byId("map-summary").textContent = `${state.startYear}–${state.endYear} · ${selectedGroupLabel()} · ${measureLabel}`;
+      byId("stat-flow").textContent = formatFlow(aggregate.fullMass);
+      byId("stat-edges").textContent = integerFormat.format(aggregate.rankedEdges.length);
+      byId("stat-positive").textContent = integerFormat.format(aggregate.positiveCount);
+      byId("stat-negative").textContent = integerFormat.format(aggregate.negativeCount);
+      byId("legend-min").textContent = `−${formatFlow(aggregate.cap)}`;
+      byId("legend-max").textContent = `+${formatFlow(aggregate.cap)}`;
+      byId("legend-unit").textContent = measureLabel;
+
+      const candidateShare = aggregate.fullMass > 0 ? aggregate.candidateMass / aggregate.fullMass : NaN;
+      const displayedShare = aggregate.fullMass > 0 ? aggregate.displayedMass / aggregate.fullMass : NaN;
+      byId("coverage-text").textContent =
+        `Candidate edges cover ${formatPercent(candidateShare)} of exact selected non-self flow; ` +
+        `the visible ${aggregate.rankedEdges.length.toLocaleString()} edges cover ${formatPercent(displayedShare)}. ` +
+        `Municipality net-flow colours remain exact.`;
+    }
+
+    function updateVisualization() {
+      currentAggregate = aggregateSelection();
+      updateMunicipalities(currentAggregate);
+      updateFlows(currentAggregate);
+      updateSummary(currentAggregate);
+      updateGroupSelectionSummary();
+    }
+
+    function resetFilters() {
+      const minYear = Math.min(...meta.years);
+      const maxYear = Math.max(...meta.years);
+      state.startYear = minYear;
+      state.endYear = maxYear;
+      state.aggregation = meta.defaultAggregation;
+      state.edgeLimit = meta.settings.defaultVisibleEdges;
+      state.showEdges = true;
+      byId("year-slider").noUiSlider.set([minYear, maxYear]);
+      byId("aggregation-select").value = state.aggregation;
+      byId("edge-limit").value = state.edgeLimit;
+      byId("edge-limit-label").textContent = integerFormat.format(state.edgeLimit);
+      byId("show-edges").checked = true;
+      const dimension = getDimensionMeta(currentDimension);
+      state.selectedGroups = new Set(dimension.groups.map((group) => Number(group.id)));
+      syncGroupCheckboxes();
+      scheduleUpdate();
+    }
+
+    function searchMunicipality(event) {
+      const query = event.target.value.trim().toLowerCase();
+      if (!query) return;
+      const municipality = meta.municipalities.find((item) =>
+        `${item.name} — ${item.code}`.toLowerCase() === query ||
+        item.name.toLowerCase() === query ||
+        item.code.toLowerCase() === query
+      );
+      if (!municipality) return;
+      const layer = municipalityLayers.get(Number(municipality.id));
+      if (layer) {
+        map.fitBounds(layer.getBounds(), { maxZoom: 10, padding: [45, 45] });
+        layer.openTooltip();
+      } else {
+        map.setView([municipality.lat, municipality.lng], 10);
+      }
+      if (window.innerWidth <= 850) byId("sidebar").classList.remove("open");
+    }
+
+    function downloadTextFile(filename, text, mimeType = "text/csv;charset=utf-8") {
+      const blob = new Blob([text], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function csvEscape(value) {
+      const text = String(value ?? "");
+      return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+    }
+
+    function downloadCurrentNodes() {
+      if (!currentAggregate) return;
+      const rows = [["municipality_code", "municipality_name", "inflow", "outflow", "net_flow"]];
+      meta.municipalities.forEach((municipality) => {
+        const id = Number(municipality.id);
+        rows.push([
+          municipality.code,
+          municipality.name,
+          currentAggregate.inflow[id],
+          currentAggregate.outflow[id],
+          currentAggregate.net[id],
+        ]);
+      });
+      const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+      downloadTextFile(`municipality_net_flow_${state.startYear}_${state.endYear}_${currentDimension}.csv`, csv);
+    }
+
+    function downloadCurrentEdges() {
+      if (!currentAggregate) return;
+      const rows = [["origin_code", "origin_name", "destination_code", "destination_name", "flow"]];
+      currentAggregate.rankedEdges.forEach((edge) => {
+        const origin = meta.municipalities[edge.originId];
+        const destination = meta.municipalities[edge.destinationId];
+        rows.push([origin.code, origin.name, destination.code, destination.name, edge.flow]);
+      });
+      const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+      downloadTextFile(`visible_edges_${state.startYear}_${state.endYear}_${currentDimension}.csv`, csv);
+    }
+
+    async function initialise() {
+      if (typeof L === "undefined" || typeof noUiSlider === "undefined") {
+        throw new Error("Leaflet or noUiSlider failed to load from the CDN.");
+      }
+      [meta, municipalityGeoJSON] = await Promise.all([
+        fetchJSON(META_URL),
+        fetchJSON("./data/municipalities.geojson"),
+      ]);
+      buildMap();
+      buildStaticControls();
+      await loadDimension(meta.defaultDimension);
+    }
+
+    initialise().catch(showError);
+  </script>
+</body>
+</html>
