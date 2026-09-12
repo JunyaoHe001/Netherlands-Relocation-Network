@@ -400,6 +400,11 @@
           <div id="error-box"></div>
         </header>
 
+        <section class="control-section" aria-label="Basemap display">
+          <label class="inline-check" style="margin:0;cursor:pointer;"><input id="atlas-basemap-toggle" type="checkbox" role="switch" checked /><span>Show basemap</span></label>
+          <p class="coverage">OpenStreetMap. Research layers stay visible when the basemap is hidden.</p>
+        </section>
+
         <section class="control-section">
           <div class="section-title">
             <h2>Period</h2>
@@ -696,10 +701,26 @@
 
     function buildMap() {
       map = L.map("map", { zoomControl: true, preferCanvas: false, minZoom: 6 });
-      L.tileLayer(meta.map.tileUrl, {
-        attribution: meta.map.attribution,
-        maxZoom: meta.map.maxZoom,
-      }).addTo(map);
+      const basemap = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxNativeZoom: 19,
+        maxZoom: 19,
+        updateWhenIdle: true,
+        keepBuffer: 1,
+      });
+      const basemapToggle = byId("atlas-basemap-toggle");
+      const basemapPreference = "atlas-basemap-visible:" + location.pathname;
+      try { basemapToggle.checked = localStorage.getItem(basemapPreference) !== "false"; } catch (_) {}
+      const applyBasemapVisibility = () => {
+        if (basemapToggle.checked && !map.hasLayer(basemap)) basemap.addTo(map);
+        if (!basemapToggle.checked && map.hasLayer(basemap)) map.removeLayer(basemap);
+      };
+      basemapToggle.addEventListener("change", () => {
+        try { localStorage.setItem(basemapPreference, String(basemapToggle.checked)); } catch (_) {}
+        applyBasemapVisibility();
+      });
+      applyBasemapVisibility();
+      window.__ATLAS_BASEMAP__ = { map, layer: basemap, input: basemapToggle };
 
       map.createPane("municipalityPane");
       map.getPane("municipalityPane").style.zIndex = 410;
